@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 mb-4">
+            <i class="fas fa-search me-3"></i>
+            UK Company Scraper
+        </h1>
+        <p class="lead mb-4">
+            Enter a company name to get comprehensive data including emails, phone numbers, directors and LinkedIn
+            profiles from multiple sources
+        </p>
+
+        <!-- Search Form -->
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <form method="post" action="{% url 'search_companies' %}" class="mb-4" id="searchForm">
+                    {% csrf_token %}
+                    <div class="input-group input-group-lg">
+                        <input type="text" class="form-control" name="company_name" id="companyName"
+                            placeholder="Enter company name (e.g., Tesco, Microsoft)"
+                            value="{{ request.POST.company_name }}" required>
+                        <button class="btn btn-light" type="submit" id="searchBtn">
+                            <i class="fas fa-search"></i> Search Companies
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-search"></i> Searching Multiple Sources...
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                    <h5 id="currentStatus">Initializing search...</h5>
+                    <p class="text-muted" id="currentMessage">Please wait while we search across multiple sources</p>
+                    <small class="text-muted">This may take 30-60 seconds depending on the number of results
+                        found</small>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress mb-4" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                        style="width: 0%" id="progressBar">
+                        0%
+                    </div>
+                </div>
+
+                <!-- Source Status -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="source-status" id="companiesHouseStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-landmark text-primary me-2"></i>
+                                <strong>Companies House</strong>
+                            </div>
+                            <div class="status-indicator">
+                                <i class="fas fa-clock text-warning"></i>
+                                <small class="text-muted">Waiting...</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="source-status" id="linkedinStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fab fa-linkedin text-primary me-2"></i>
+                                <strong>LinkedIn</strong>
+                            </div>
+                            <div class="status-indicator">
+                                <i class="fas fa-clock text-warning"></i>
+                                <small class="text-muted">Waiting...</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="source-status" id="googleStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fab fa-google text-primary me-2"></i>
+                                <strong>Google Search</strong>
+                            </div>
+                            <div class="status-indicator">
+                                <i class="fas fa-clock text-warning"></i>
+                                <small class="text-muted">Waiting...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="source-status" id="crunchbaseStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-chart-line text-primary me-2"></i>
+                                <strong>Crunchbase</strong>
+                            </div>
+                            <div class="status-indicator">
+                                <i class="fas fa-clock text-warning"></i>
+                                <small class="text-muted">Waiting...</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="source-status" id="dandbStatus">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-building text-primary me-2"></i>
+                                <strong>Dun & Bradstreet</strong>
+                            </div>
+                            <div class="status-indicator">
+                                <i class="fas fa-clock text-warning"></i>
+                                <small class="text-muted">Waiting...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Details -->
+                <div class="mt-4">
+                    <h6><i class="fas fa-info-circle text-info"></i> What we're searching:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i> Official company registration data</li>
+                        <li><i class="fas fa-check text-success me-2"></i> Active directors and officers</li>
+                        <li><i class="fas fa-check text-success me-2"></i> Company contact information</li>
+                        <li><i class="fas fa-check text-success me-2"></i> LinkedIn company profiles</li>
+                        <li><i class="fas fa-check text-success me-2"></i> Additional web sources</li>
+                        <li><i class="fas fa-check text-success me-2"></i> Funding and credit information</li>
+                    </ul>
+                </div>
+
+                <!-- Estimated Time -->
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-clock"></i>
+                    <strong>Estimated Time:</strong> 30-60 seconds for comprehensive results from all sources.
+                    <br>
+                    <small>Search time varies based on the number of companies found and data complexity.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12 text-center mb-5">
+            <h2>Key Features</h2>
+            <p class="text-muted">Everything you need for comprehensive company data collection</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-building fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Multi-Source Search</h5>
+                    <p class="card-text">
+                        Search across Companies House, LinkedIn, and Google simultaneously for comprehensive company
+                        data coverage.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-users fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Active Directors Only</h5>
+                    <p class="card-text">
+                        Focus on current, active directors and officers with filtered results showing only relevant
+                        personnel.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-address-book fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Contact Enrichment</h5>
+                    <p class="card-text">
+                        Find and verify company emails, phone numbers, and LinkedIn profiles
+                        from multiple sources with confidence scoring.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-download fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Multiple Export Formats</h5>
+                    <p class="card-text">
+                        Export your collected data to CSV, Excel, JSON, or directly to
+                        Airtable for seamless integration with your workflow.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-shield-alt fa-3x text-danger"></i>
+                    </div>
+                    <h5 class="card-title">Bot Protection Bypass</h5>
+                    <p class="card-text">
+                        Advanced techniques to bypass common bot protection mechanisms
+                        while maintaining ethical scraping practices.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-bar fa-3x text-purple"></i>
+                    </div>
+                    <h5 class="card-title">Real-time Progress</h5>
+                    <p class="card-text">
+                        Live progress tracking showing which sources are being searched and real-time status updates.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Sources Section -->
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <h2>Data Sources</h2>
+            <p class="text-muted mb-4">We search across multiple reliable sources to ensure comprehensive data coverage
+            </p>
+
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center p-3">
+                                <i class="fas fa-landmark fa-3x text-primary mb-3"></i>
+                                <h5>Companies House</h5>
+                                <p class="text-muted">Official UK company registry with verified registration data,
+                                    directors, and financial information</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3">
+                                <i class="fab fa-linkedin fa-3x text-primary mb-3"></i>
+                                <h5>LinkedIn</h5>
+                                <p class="text-muted">Professional networking platform with company profiles, employee
+                                    information, and contact details</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3">
+                                <i class="fab fa-google fa-3x text-primary mb-3"></i>
+                                <h5>Google Search</h5>
+                                <p class="text-muted">Web search engine for additional company information, news, and
+                                    publicly available contact data</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchForm = document.getElementById('searchForm');
+        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        const progressBar = document.getElementById('progressBar');
+        const currentStatus = document.getElementById('currentStatus');
+        const currentMessage = document.getElementById('currentMessage');
+
+        // Source status elements
+        const companiesHouseStatus = document.getElementById('companiesHouseStatus');
+        const linkedinStatus = document.getElementById('linkedinStatus');
+        const googleStatus = document.getElementById('googleStatus');
+        const crunchbaseStatus = document.getElementById('crunchbaseStatus');
+        const dandbStatus = document.getElementById('dandbStatus');
+
+        function simulateProgress(companyName) {
+            let progress = 0;
+            const steps = [
+                { progress: 5, status: 'Initializing search...', message: 'Setting up search parameters' },
+                { progress: 15, status: 'Searching Companies House...', message: 'Querying official UK company registry' },
+                { progress: 30, status: 'Searching LinkedIn...', message: 'Finding company profiles and employee data' },
+                { progress: 45, status: 'Searching Google...', message: 'Gathering additional web information' },
+                { progress: 60, status: 'Searching Crunchbase...', message: 'Finding funding and startup data' },
+                { progress: 75, status: 'Searching Dun & Bradstreet...', message: 'Gathering credit and business information' },
+                { progress: 85, status: 'Processing results...', message: 'Consolidating and filtering data' },
+                { progress: 95, status: 'Finalizing search...', message: 'Preparing results for display' }
+            ];
+
+            let currentStep = 0;
+
+            const interval = setInterval(() => {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    progress = step.progress;
+
+                    progressBar.style.width = progress + '%';
+                    progressBar.textContent = progress + '%';
+                    currentStatus.textContent = step.status;
+                    currentMessage.textContent = step.message;
+
+                    // Update source statuses
+                    updateSourceStatus(currentStep);
+
+                    currentStep++;
+                } else {
+                    // Don't clear interval - keep it running until form submits
+                    // Just update to show we're waiting for results
+                    progressBar.style.width = '95%';
+                    progressBar.textContent = '95%';
+                    currentStatus.textContent = 'Waiting for results...';
+                    currentMessage.textContent = 'Please wait while we process your search results';
+                }
+            }, 1500); // Slower interval for more realistic timing
+
+            // Store interval ID so we can clear it when form actually submits
+            window.searchProgressInterval = interval;
+        }
+
+        function updateSourceStatus(step) {
+            const sources = [
+                { element: companiesHouseStatus, name: 'Companies House' },
+                { element: linkedinStatus, name: 'LinkedIn' },
+                { element: googleStatus, name: 'Google Search' },
+                { element: crunchbaseStatus, name: 'Crunchbase' },
+                { element: dandbStatus, name: 'Dun & Bradstreet' }
+            ];
+
+            if (step < sources.length) {
+                const source = sources[step];
+                const statusIndicator = source.element.querySelector('.status-indicator');
+                statusIndicator.innerHTML = '<i class="fas fa-spinner fa-spin text-primary"></i><small class="text-primary">Searching...</small>';
+            }
+
+            // Mark previous sources as completed
+            for (let i = 0; i < step && i < sources.length; i++) {
+                const source = sources[i];
+                const statusIndicator = source.element.querySelector('.status-indicator');
+                statusIndicator.innerHTML = '<i class="fas fa-check text-success"></i><small class="text-success">Completed</small>';
+            }
+
+            // Mark current source as searching
+            if (step < sources.length) {
+                const source = sources[step];
+                const statusIndicator = source.element.querySelector('.status-indicator');
+                statusIndicator.innerHTML = '<i class="fas fa-spinner fa-spin text-primary"></i><small class="text-primary">Searching...</small>';
+            }
+        }
+
+        // Override form submission to handle the loading properly
+        searchForm.addEventListener('submit', function (e) {
+            const companyName = document.getElementById('companyName').value;
+            if (!companyName.trim()) return;
+
+            // Show loading modal
+            loadingModal.show();
+
+            // Start progress simulation
+            simulateProgress(companyName);
+
+            // Don't prevent default - let the form submit normally
+            // The modal will stay open until the page redirects to results
+        });
+    });
+</script>
+
+<style>
+    .source-status {
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .progress {
+        border-radius: 10px;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}

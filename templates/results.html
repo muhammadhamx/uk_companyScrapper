@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results - UK Company Scraper{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Search Results for "{{ company_name }}"</h2>
+                    <p class="text-muted">Found {{ total_companies }} companies with {{ total_directors }} active
+                        directors and {{ total_contacts }} contacts</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Multi-Source Search:</strong> Results compiled from Companies House, LinkedIn, Google
+                        Search, Crunchbase, and Dun & Bradstreet.
+                        Only active directors are shown (resigned directors and other roles are filtered out).
+                    </div>
+                </div>
+                <div>
+                    <a href="/" class="btn btn-secondary me-2">
+                        <i class="fas fa-arrow-left"></i> New Search
+                    </a>
+                    {% if consolidated_data %}
+                    <div class="btn-group">
+                        <a href="{% url 'export_data' %}?company_name={{ company_name }}&format=csv"
+                            class="btn btn-success">
+                            <i class="fas fa-file-csv"></i> Export CSV
+                        </a>
+                        <a href="{% url 'export_data' %}?company_name={{ company_name }}&format=xlsx"
+                            class="btn btn-primary">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if consolidated_data %}
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h3>{{ total_companies }}</h3>
+                    <p>Companies Found</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ total_directors }}</h3>
+                    <p>Active Directors</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h3>{{ total_contacts }}</h3>
+                    <p>Contacts Found</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-white">
+                <div class="card-body">
+                    <h3>{{ verified_contacts_count }}</h3>
+                    <p>Verified Contacts</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Consolidated Company Data -->
+    {% for company in consolidated_data %}
+    <div class="row mb-5">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4><i class="fas fa-building"></i> {{ company.company_details.name }}</h4>
+                            <small>
+                                <i class="fas fa-database"></i> Source:
+                                {% if company.source == 'companies_house' %}
+                                <i class="fas fa-landmark"></i> Companies House
+                                {% elif company.source == 'linkedin' %}
+                                <i class="fab fa-linkedin"></i> LinkedIn
+                                {% elif company.source == 'google' %}
+                                <i class="fab fa-google"></i> Google Search
+                                {% elif company.source == 'crunchbase' %}
+                                <i class="fas fa-chart-line"></i> Crunchbase
+                                {% elif company.source == 'dandb' %}
+                                <i class="fas fa-building"></i> Dun & Bradstreet
+                                {% else %}
+                                <i class="fas fa-globe"></i> {{ company.source|title }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <span
+                            class="badge bg-light text-dark">{{ company.company_details.company_status|default:"Unknown" }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Company Details -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-info-circle"></i> Company Information</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Company Number:</strong></td>
+                                    <td>{{ company.company_details.company_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type:</strong></td>
+                                    <td>{{ company.company_details.company_type|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Incorporation Date:</strong></td>
+                                    <td>{{ company.company_details.incorporation_date|date:"M d, Y"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Nature of Business:</strong></td>
+                                    <td>{{ company.company_details.nature_of_business|default:"-" }}</td>
+                                </tr>
+                                {% if company.company_details.sic_codes %}
+                                <tr>
+                                    <td><strong>SIC Codes:</strong></td>
+                                    <td>{{ company.company_details.sic_codes|length }}
+                                        code{{ company.company_details.sic_codes|length|pluralize }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.industry %}
+                                <tr>
+                                    <td><strong>Industry:</strong></td>
+                                    <td>{{ company.company_details.industry }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.size %}
+                                <tr>
+                                    <td><strong>Company Size:</strong></td>
+                                    <td>{{ company.company_details.size }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.funding %}
+                                <tr>
+                                    <td><strong>Funding:</strong></td>
+                                    <td>{{ company.company_details.funding }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.employees %}
+                                <tr>
+                                    <td><strong>Employees:</strong></td>
+                                    <td>{{ company.company_details.employees }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.founded %}
+                                <tr>
+                                    <td><strong>Founded:</strong></td>
+                                    <td>{{ company.company_details.founded }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.credit_rating %}
+                                <tr>
+                                    <td><strong>Credit Rating:</strong></td>
+                                    <td>{{ company.company_details.credit_rating }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if company.company_details.revenue %}
+                                <tr>
+                                    <td><strong>Revenue:</strong></td>
+                                    <td>{{ company.company_details.revenue }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-map-marker-alt"></i> Address</h5>
+                            {% if company.company_details.registered_office_address.full_address %}
+                            <p>{{ company.company_details.registered_office_address.full_address }}</p>
+                            {% else %}
+                            <p class="text-muted">Address not available</p>
+                            {% endif %}
+
+                            {% if company.company_details.companies_house_url %}
+                            <!-- <a href="{{ company.company_details.companies_house_url }}" target="_blank"
+                                class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-external-link-alt"></i> View on Companies House
+                            </a> -->
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Company Contacts -->
+                    {% if company.company_contacts %}
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <h5><i class="fas fa-address-book"></i> Company Contacts</h5>
+                            <div class="row">
+                                {% for contact in company.company_contacts %}
+                                <div class="col-md-6 col-lg-3 mb-2">
+                                    <div class="card border">
+                                        <div class="card-body p-2">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-2">
+                                                    {% if contact.type == 'email' %}
+                                                    <i class="fas fa-envelope text-primary"></i>
+                                                    {% elif contact.type == 'phone' %}
+                                                    <i class="fas fa-phone text-success"></i>
+                                                    {% elif contact.type == 'linkedin' %}
+                                                    <i class="fab fa-linkedin text-info"></i>
+                                                    {% elif contact.type == 'website' %}
+                                                    <i class="fas fa-globe text-warning"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <small
+                                                        class="text-muted d-block">{{ contact.type|capfirst }}</small>
+                                                    {% if contact.type == 'email' %}
+                                                    <a href="mailto:{{ contact.value }}"
+                                                        class="text-decoration-none">{{ contact.value }}</a>
+                                                    {% elif contact.type == 'phone' %}
+                                                    <a href="tel:{{ contact.value }}"
+                                                        class="text-decoration-none">{{ contact.value }}</a>
+
+                                                    {{ contact.value }}
+                                                    {% endif %}
+                                                    <!-- <div class="progress mt-1" style="height: 4px;">
+                                                        <div class="progress-bar"
+                                                            style="width: {{ contact.confidence }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">{{ contact.confidence }}%
+                                                        confidence</small> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Directors -->
+                    {% if company.directors %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h5><i class="fas fa-users"></i> Active Directors ({{ company.directors|length }})</h5>
+                            <div class="alert alert-success">
+                                <i class="fas fa-filter"></i>
+                                <strong>Filtered Results:</strong> Only active directors are shown. Resigned directors
+                                and other roles (secretaries, etc.) have been filtered out.
+                            </div>
+                            {% for director in company.directors %}
+                            <div class="card border mb-3">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="fas fa-user"></i> {{ director.name }}</h6>
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Active Director
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <!-- Director Details -->
+                                        <div class="col-md-6">
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <td><strong>Role:</strong></td>
+                                                    <td>{{ director.details.officer_role|default:"-" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Nationality:</strong></td>
+                                                    <td>{{ director.details.nationality|default:"-" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Occupation:</strong></td>
+                                                    <td>{{ director.details.occupation|default:"-" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Appointed:</strong></td>
+                                                    <td>{{ director.details.appointed_on|date:"M d, Y"|default:"-" }}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+
+                                        <!-- Director Contacts -->
+                                        <div class="col-md-6">
+                                            {% if director.contacts %}
+                                            <h6><i class="fas fa-address-card"></i> Director Contacts</h6>
+                                            {% for contact in director.contacts %}
+                                            <div class="d-flex align-items-center mb-2">
+                                                <div class="me-2">
+                                                    {% if contact.type == 'email' %}
+                                                    <i class="fas fa-envelope text-primary"></i>
+                                                    {% elif contact.type == 'linkedin' %}
+                                                    <i class="fab fa-linkedin text-info"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <small
+                                                        class="text-muted d-block">{{ contact.type|capfirst }}</small>
+                                                    {% if contact.type == 'email' %}
+                                                    <a href="mailto:{{ contact.value }}"
+                                                        class="text-decoration-none">{{ contact.value }}</a>
+                                                    {% elif contact.type == 'linkedin' %}
+                                                    <a href="{{ contact.value }}" target="_blank"
+                                                        class="text-decoration-none">LinkedIn Profile</a>
+                                                    {% else %}
+                                                    {{ contact.value }}
+                                                    {% endif %}
+                                                    <!-- <div class="progress mt-1" style="height: 3px;">
+                                                        <div class="progress-bar"
+                                                            style="width: {{ contact.confidence }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">{{ contact.confidence }}%
+                                                        confidence</small> -->
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            {% else %}
+                                            <p class="text-muted">No contact information available</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No active director information found for this company.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-warning text-center">
+                <h4><i class="fas fa-exclamation-triangle"></i> No Results Found</h4>
+                <p>No companies were found matching "{{ company_name }}". Please try a different search term.</p>
+                <a href="/" class="btn btn-primary">Try Again</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if loading %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        loadingModal.show();
+    });
+</script>
+{% endif %}
+{% endblock %}
