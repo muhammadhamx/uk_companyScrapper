@@ -861,31 +861,31 @@ class ScrapingService:
             # Search from multiple sources
             all_companies = []
             
-            # 1. Companies House (primary source) - get more results
+            # 1. Companies House (primary source) - limited for speed
             logger.info(f"Searching Companies House for: {company_name}")
-            companies_house_results = self.companies_house_scraper.search_company(company_name, max_results=50)
+            companies_house_results = self.companies_house_scraper.search_company(company_name, max_results=15)
             for result in companies_house_results:
                 result['source'] = 'companies_house'
                 all_companies.append(result)
             
-            # 2. LinkedIn (secondary source)
+            # 2. LinkedIn (secondary source) - limited for speed
             logger.info(f"Searching LinkedIn for: {company_name}")
-            linkedin_results = self.linkedin_scraper.search_company(company_name, max_results=50)
+            linkedin_results = self.linkedin_scraper.search_company(company_name, max_results=10)
             all_companies.extend(linkedin_results)
             
-            # 3. Google (tertiary source)
+            # 3. Google (tertiary source) - limited for speed
             logger.info(f"Searching Google for: {company_name}")
-            google_results = self.google_scraper.search_company(company_name, max_results=50)
+            google_results = self.google_scraper.search_company(company_name, max_results=10)
             all_companies.extend(google_results)
             
-            # 4. Crunchbase (fourth source)
+            # 4. Crunchbase (fourth source) - limited for speed
             logger.info(f"Searching Crunchbase for: {company_name}")
-            crunchbase_results = self.crunchbase_scraper.search_company(company_name, max_results=50)
+            crunchbase_results = self.crunchbase_scraper.search_company(company_name, max_results=5)
             all_companies.extend(crunchbase_results)
             
-            # 5. Dun & Bradstreet (fifth source)
+            # 5. Dun & Bradstreet (fifth source) - limited for speed
             logger.info(f"Searching Dun & Bradstreet for: {company_name}")
-            dandb_results = self.dandb_scraper.search_company(company_name, max_results=50)
+            dandb_results = self.dandb_scraper.search_company(company_name, max_results=10)
             all_companies.extend(dandb_results)
             
             if not all_companies:
@@ -932,7 +932,7 @@ class ScrapingService:
                         'directors': []
                     }
                     
-                    # Process directors with their contacts (only for Companies House)
+                    # Process directors with their contacts (only for Companies House) - limited for speed
                     if company_result.get('source') == 'companies_house':
                         directors_data = company_result.get('directors', [])
                         
@@ -943,7 +943,10 @@ class ScrapingService:
                                'director' in director.get('officer_role', '').lower()
                         ]
                         
-                        for director_info in active_directors:
+                        # Limit directors to first 3 for speed improvement
+                        limited_directors = active_directors[:3]
+                        
+                        for director_info in limited_directors:
                             director_data = {
                                 'name': director_info.get('name', 'Unknown'),
                                 'details': {
@@ -1042,13 +1045,14 @@ class ScrapingService:
             return None
 
     def _generate_company_contacts(self, company_name: str) -> List[Dict]:
-        """Generate company contact information"""
+        """Generate company contact information - limited for speed"""
         if not company_name:
             return []
         
         # Clean company name for email generation
         company_name_clean = company_name.lower().replace(' ', '').replace('ltd', '').replace('plc', '').replace('limited', '').replace('&', 'and')[:20]
         
+        # Generate only essential contacts for speed
         contacts = [
             {
                 'type': 'email',
@@ -1059,35 +1063,19 @@ class ScrapingService:
                 'description': 'General company email'
             },
             {
-                'type': 'phone',
-                'value': f"+44 20 {7000 + hash(company_name) % 2000} {1000 + hash(company_name) % 9000}",
-                'source': 'estimated',
-                'confidence': 55.0,
-                'verified': False,
-                'description': 'Main company phone'
-            },
-            {
                 'type': 'linkedin',
                 'value': f"https://linkedin.com/company/{company_name.lower().replace(' ', '-').replace('&', 'and')}",
                 'source': 'estimated',
                 'confidence': 70.0,
                 'verified': False,
                 'description': 'Company LinkedIn page'
-            },
-            {
-                'type': 'website',
-                'value': f"https://www.{company_name_clean}.co.uk",
-                'source': 'estimated',
-                'confidence': 65.0,
-                'verified': False,
-                'description': 'Company website'
             }
         ]
         
         return contacts
     
     def _generate_director_contacts(self, director_name: str, company_name: str) -> List[Dict]:
-        """Generate director contact information"""
+        """Generate director contact information - limited for speed"""
         if not director_name or not company_name:
             return []
         
@@ -1099,6 +1087,7 @@ class ScrapingService:
         last_name = director_name_parts[-1].lower()
         company_name_clean = company_name.lower().replace(' ', '').replace('ltd', '').replace('plc', '').replace('limited', '').replace('&', 'and')[:20]
         
+        # Generate only essential director contacts for speed
         contacts = [
             {
                 'type': 'email',
@@ -1107,14 +1096,6 @@ class ScrapingService:
                 'confidence': 75.0,
                 'verified': False,
                 'description': 'Director work email'
-            },
-            {
-                'type': 'linkedin',
-                'value': f"https://linkedin.com/in/{first_name}-{last_name}",
-                'source': 'estimated',
-                'confidence': 65.0,
-                'verified': False,
-                'description': 'Director LinkedIn profile'
             }
         ]
         

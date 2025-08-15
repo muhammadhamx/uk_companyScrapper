@@ -469,8 +469,8 @@ def search_companies(request):
             # Create a scraping service instance
             service = ScrapingService()
             
-            # Get consolidated company data with all information interlinked - get more results
-            consolidated_data = service.get_consolidated_company_data(company_name, max_results=100)
+            # Get consolidated company data with all information interlinked - max 50 results
+            consolidated_data = service.get_consolidated_company_data(company_name, max_results=50)
             
             if not consolidated_data:
                 return render(request, 'results.html', {
@@ -664,8 +664,7 @@ def export_csv(search_data, company_name):
     
     headers = [
         'Company Name', 'Source', 'Company Email', 'Company Phone', 
-        'Company LinkedIn', 'Company Website', 'Director Name',
-        'Director Email', 'Director Phone', 'Director LinkedIn'
+        'Company LinkedIn', 'Company Website',
     ]
     writer.writerow(headers)
     
@@ -685,7 +684,6 @@ def export_csv(search_data, company_name):
     
     # Group contacts by company and type
     company_contacts = {}
-    director_contacts = {}
     
     for contact in contacts:
         company_name = contact['company']
@@ -697,14 +695,7 @@ def export_csv(search_data, company_name):
                 company_contacts[company_name] = {'email': [], 'phone': [], 'linkedin': [], 'website': []}
             if contact_type in company_contacts[company_name]:
                 company_contacts[company_name][contact_type].append(contact_value)
-        elif contact['relationship'] == 'director':
-            director_name = contact['related_to'].split(' (')[0]
-            key = f"{company_name}_{director_name}"
-            if key not in director_contacts:
-                director_contacts[key] = {'email': [], 'phone': [], 'linkedin': []}
-            if contact_type in director_contacts[key]:
-                director_contacts[key][contact_type].append(contact_value)
-    
+        
     # Write data rows
     for company in companies:
         company_name = company['name']
@@ -718,53 +709,19 @@ def export_csv(search_data, company_name):
         company_website = company_contact_data.get('website', [])
         
         # Get directors for this company
-        company_directors = director_lookup.get(company_name, [])
         
-        if company_directors:
-            for idx, director in enumerate(company_directors):
-                director_name = director['name']
-                
-                # Get director contacts
-                director_key = f"{company_name}_{director_name}"
-                director_contact_data = director_contacts.get(director_key, {})
-                director_emails = director_contact_data.get('email', [])
-                director_phones = director_contact_data.get('phone', [])
-                director_linkedin = director_contact_data.get('linkedin', [])
-                
-                if idx == 0:
-                    # First director - include company info
-                    writer.writerow([
-                        company_name,
-                        source,
-                        '; '.join(company_emails) if company_emails else '',
-                        '; '.join(company_phones) if company_phones else '',
-                        '; '.join(company_linkedin) if company_linkedin else '',
-                        '; '.join(company_website) if company_website else '',
-                        director_name,
-                        '; '.join(director_emails) if director_emails else '',
-                        '; '.join(director_phones) if director_phones else '',
-                        '; '.join(director_linkedin) if director_linkedin else ''
-                    ])
-                else:
-                    # Additional directors - empty company columns
-                    writer.writerow([
-                        '', '', '', '', '', '',
-                        director_name,
-                        '; '.join(director_emails) if director_emails else '',
-                        '; '.join(director_phones) if director_phones else '',
-                        '; '.join(director_linkedin) if director_linkedin else ''
-                    ])
-        else:
-            # No directors - just company info
-            writer.writerow([
-                company_name.split(' (')[0].strip(),
-                source,
-                '; '.join(company_emails) if company_emails else '',
-                '; '.join(company_phones) if company_phones else '',
-                '; '.join(company_linkedin) if company_linkedin else '',
-                '; '.join(company_website) if company_website else '',
-                '', '', '', ''
-            ])
+       
+        
+        # No directors - just company info
+        writer.writerow([
+            company_name.split(' (')[0].strip(),
+            source,
+            '; '.join(company_emails) if company_emails else '',
+            '; '.join(company_phones) if company_phones else '',
+            '; '.join(company_linkedin) if company_linkedin else '',
+            '; '.join(company_website) if company_website else '',
+            '', '', '', ''
+        ])
 
     response.write(output.getvalue())
     return response
@@ -778,8 +735,7 @@ def export_excel(search_data, company_name):
 
     headers = [
         'Company Name', 'Source', 'Company Email', 'Company Phone', 
-        'Company LinkedIn', 'Company Website', 'Director Name',
-        'Director Email', 'Director Phone', 'Director LinkedIn'
+        'Company LinkedIn', 'Company Website'
     ]
     ws.append(headers)
 
@@ -793,21 +749,13 @@ def export_excel(search_data, company_name):
 
     # Process session data structure
     companies = search_data.get('companies', [])
-    directors = search_data.get('directors', [])
     contacts = search_data.get('contacts', [])
     
     # Create lookup dictionaries for easier access
     company_lookup = {company['name']: company for company in companies}
-    director_lookup = {}
-    for director in directors:
-        company_name = director['company']
-        if company_name not in director_lookup:
-            director_lookup[company_name] = []
-        director_lookup[company_name].append(director)
     
     # Group contacts by company and type
     company_contacts = {}
-    director_contacts = {}
     
     for contact in contacts:
         company_name = contact['company']
@@ -819,14 +767,7 @@ def export_excel(search_data, company_name):
                 company_contacts[company_name] = {'email': [], 'phone': [], 'linkedin': [], 'website': []}
             if contact_type in company_contacts[company_name]:
                 company_contacts[company_name][contact_type].append(contact_value)
-        elif contact['relationship'] == 'director':
-            director_name = contact['related_to'].split(' (')[0]
-            key = f"{company_name}_{director_name}"
-            if key not in director_contacts:
-                director_contacts[key] = {'email': [], 'phone': [], 'linkedin': []}
-            if contact_type in director_contacts[key]:
-                director_contacts[key][contact_type].append(contact_value)
-    
+        
     # Write data rows
     for company in companies:
         company_name = company['name']
@@ -840,53 +781,18 @@ def export_excel(search_data, company_name):
         company_website = company_contact_data.get('website', [])
         
         # Get directors for this company
-        company_directors = director_lookup.get(company_name, [])
         
-        if company_directors:
-            for idx, director in enumerate(company_directors):
-                director_name = director['name']
-                
-                # Get director contacts
-                director_key = f"{company_name}_{director_name}"
-                director_contact_data = director_contacts.get(director_key, {})
-                director_emails = director_contact_data.get('email', [])
-                director_phones = director_contact_data.get('phone', [])
-                director_linkedin = director_contact_data.get('linkedin', [])
-                
-                if idx == 0:
-                    # First director - include company info
-                    ws.append([
-                        company_name,
-                        source,
-                        '; '.join(company_emails) if company_emails else '',
-                        '; '.join(company_phones) if company_phones else '',
-                        '; '.join(company_linkedin) if company_linkedin else '',
-                        '; '.join(company_website) if company_website else '',
-                        director_name,
-                        '; '.join(director_emails) if director_emails else '',
-                        '; '.join(director_phones) if director_phones else '',
-                        '; '.join(director_linkedin) if director_linkedin else ''
-                    ])
-                else:
-                    # Additional directors - empty company columns
-                    ws.append([
-                        '', '', '', '', '', '',
-                        director_name,
-                        '; '.join(director_emails) if director_emails else '',
-                        '; '.join(director_phones) if director_phones else '',
-                        '; '.join(director_linkedin) if director_linkedin else ''
-                    ])
-        else:
-            # No directors - just company info
-            ws.append([
-                company_name.split(' (')[0].strip(),
-                source,
-                '; '.join(company_emails) if company_emails else '',
-                '; '.join(company_phones) if company_phones else '',
-                '; '.join(company_linkedin) if company_linkedin else '',
-                '; '.join(company_website) if company_website else '',
-                '', '', '', ''
-            ])
+       
+        # No directors - just company info
+        ws.append([
+            company_name.split(' (')[0].strip(),
+            source,
+            '; '.join(company_emails) if company_emails else '',
+            '; '.join(company_phones) if company_phones else '',
+            '; '.join(company_linkedin) if company_linkedin else '',
+            '; '.join(company_website) if company_website else '',
+            '', '', '', ''
+        ])
 
     # Auto column widths
     for col in ws.columns:
